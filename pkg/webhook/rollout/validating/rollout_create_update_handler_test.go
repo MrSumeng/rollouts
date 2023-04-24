@@ -84,6 +84,15 @@ var (
 					},
 				},
 			},
+			AllowRunTime: &appsv1alpha1.AllowRunTime{
+				TimeZone: nil,
+				TimeRanges: []appsv1alpha1.TimeRange{
+					{
+						StartTime: "00:00:00",
+						EndTime:   "23:59:59",
+					},
+				},
+			},
 		},
 		Status: appsv1alpha1.RolloutStatus{
 			CanaryStatus: &appsv1alpha1.CanaryStatus{
@@ -112,6 +121,34 @@ func TestRolloutValidateCreate(t *testing.T) {
 				return []client.Object{rollout.DeepCopy()}
 			},
 		},
+		{
+			Name:    "AllowRunTime is nil",
+			Succeed: true,
+			GetObject: func() []client.Object {
+				object := rollout.DeepCopy()
+				object.Spec.AllowRunTime = nil
+				return []client.Object{object}
+			},
+		},
+		{
+			Name:    "TimeRanges is nil",
+			Succeed: true,
+			GetObject: func() []client.Object {
+				object := rollout.DeepCopy()
+				object.Spec.AllowRunTime.TimeRanges = nil
+				return []client.Object{object}
+			},
+		},
+		{
+			Name:    "TimeRanges start time equal end time",
+			Succeed: true,
+			GetObject: func() []client.Object {
+				object := rollout.DeepCopy()
+				object.Spec.AllowRunTime.TimeRanges[0].StartTime = "00:00:00"
+				object.Spec.AllowRunTime.TimeRanges[0].EndTime = "00:00:00"
+				return []client.Object{object}
+			},
+		},
 		/***********************************************************
 			The following cases may lead to controller panic
 		 **********************************************************/
@@ -136,6 +173,44 @@ func TestRolloutValidateCreate(t *testing.T) {
 		/****************************************************************
 			The following cases may lead to that controller cannot work
 		 ***************************************************************/
+		{
+			Name:    "TimeRanges time is empty string",
+			Succeed: false,
+			GetObject: func() []client.Object {
+				object := rollout.DeepCopy()
+				object.Spec.AllowRunTime.TimeRanges[0].StartTime = ""
+				object.Spec.AllowRunTime.TimeRanges[0].EndTime = ""
+				return []client.Object{object}
+			},
+		},
+		{
+			Name:    "TimeRanges time is incomplete",
+			Succeed: false,
+			GetObject: func() []client.Object {
+				object := rollout.DeepCopy()
+				object.Spec.AllowRunTime.TimeRanges[0].StartTime = "00:00"
+				return []client.Object{object}
+			},
+		},
+		{
+			Name:    "TimeRanges start time more than end time",
+			Succeed: false,
+			GetObject: func() []client.Object {
+				object := rollout.DeepCopy()
+				object.Spec.AllowRunTime.TimeRanges[0].StartTime = "02:00:00"
+				object.Spec.AllowRunTime.TimeRanges[0].EndTime = "00:00:00"
+				return []client.Object{object}
+			},
+		},
+		{
+			Name:    "TimeRanges time out of range",
+			Succeed: false,
+			GetObject: func() []client.Object {
+				object := rollout.DeepCopy()
+				object.Spec.AllowRunTime.TimeRanges[0].EndTime = "26:00:00"
+				return []client.Object{object}
+			},
+		},
 		{
 			Name:    "Service name is empty",
 			Succeed: false,

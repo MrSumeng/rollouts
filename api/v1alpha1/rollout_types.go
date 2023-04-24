@@ -61,6 +61,10 @@ type RolloutSpec struct {
 	ObjectRef ObjectRef `json:"objectRef"`
 	// rollout strategy
 	Strategy RolloutStrategy `json:"strategy"`
+	// AllowRunTime is describes when the run policy runs.
+	// Allowed to run at any time by default.
+	//+optional
+	AllowRunTime *AllowRunTime `json:"allowRunTime,omitempty"`
 	// DeprecatedRolloutID is the deprecated field.
 	// It is recommended that configure RolloutId in workload.annotations[rollouts.kruise.io/rollout-id].
 	// RolloutID should be changed before each workload revision publication.
@@ -93,6 +97,31 @@ type WorkloadRef struct {
 	Kind string `json:"kind"`
 	// Name of the referent
 	Name string `json:"name"`
+}
+
+type AllowRunTime struct {
+	// TimeZone allowed user set the time zone
+	// Sometimes, the time zone in which the POD runs is inconsistent with the time zone expected by the user.
+	// +optional
+	TimeZone *TimeZone `json:"timeZone,omitempty"`
+	// TimeRanges define a time range within the CanaryStrategy is allowed to run,cycle is every day.
+	// If not define, TimeRange is any time.
+	// +optional
+	TimeRanges []TimeRange `json:"timeRanges,omitempty"`
+}
+
+type TimeZone struct {
+	// Name of the time zone
+	Name string `json:"name"`
+	// Offset
+	// +kubebuilder:validation:Minimum=-43200
+	// +kubebuilder:validation:Maximum=43200
+	Offset int `json:"offset"`
+}
+
+type TimeRange struct {
+	StartTime string `json:"startTime"`
+	EndTime   string `json:"endTime"`
 }
 
 // RolloutStrategy defines strategy to apply during next rollout
