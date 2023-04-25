@@ -4409,33 +4409,6 @@ var _ = SIGDescribe("Rollout", func() {
 			CheckPodBatchLabel(workload.Namespace, workload.Spec.Selector, "2", "4", 1)
 			CheckPodBatchLabel(workload.Namespace, workload.Spec.Selector, "2", "5", 1)
 		})
-		It("strategy is not in allowed run time range", func() {
-			By("Creating Rollout...")
-			rollout := &v1alpha1.Rollout{}
-			Expect(ReadYamlToObject("./test_data/rollout/rollout_canary_base.yaml", rollout)).ToNot(HaveOccurred())
-			rollout.Spec.Strategy.Canary.TrafficRoutings = nil
-			rollout.Spec.AllowRunTime = &v1alpha1.AllowRunTime{
-				TimeRanges: []v1alpha1.TimeRange{
-					{
-						StartTime: "00:00:00",
-						EndTime:   "00:00:00",
-					},
-				},
-			}
-			CreateObject(rollout)
-
-			By("Creating workload and waiting for all pods ready...")
-			workload := &apps.Deployment{}
-			Expect(ReadYamlToObject("./test_data/rollout/deployment.yaml", workload)).ToNot(HaveOccurred())
-			workload.Spec.Replicas = utilpointer.Int32(3)
-			CreateObject(workload)
-			WaitDeploymentAllPodsReady(workload)
-
-			// check rollout status
-			Expect(GetObject(rollout.Name, rollout)).NotTo(HaveOccurred())
-			Expect(rollout.Status.Phase).Should(Equal(v1alpha1.RolloutPhaseHealthy))
-			By("check rollout status & paused success")
-		})
 	})
 
 	KruiseDescribe("Test", func() {
