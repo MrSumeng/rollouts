@@ -141,6 +141,11 @@ func (r *Executor) progressBatches(release *v1alpha1.BatchRelease, newStatus *v1
 		fallthrough
 
 	case v1alpha1.UpgradingBatchState:
+		expectedTime, ok := util.TimeInRange(time.Now(), release.Spec.AllowRunTime)
+		if !ok {
+			result = reconcile.Result{RequeueAfter: expectedTime.Sub(time.Now())}
+			break
+		}
 		// modify workload replicas/partition based on release plan in this state.
 		err = workloadController.UpgradeBatch()
 		switch {

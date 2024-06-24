@@ -18,6 +18,7 @@ package rollout
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"reflect"
 	"testing"
 
@@ -98,6 +99,54 @@ func TestRunCanary(t *testing.T) {
 				}
 				br.Spec.ReleasePlan.BatchPartition = utilpointer.Int32(0)
 				return br
+			},
+		},
+		{
+			name: "run canary upgrade1 is not in allowed time range",
+			getObj: func() ([]*apps.Deployment, []*apps.ReplicaSet) {
+				dep1 := deploymentDemo.DeepCopy()
+				rs1 := rsDemo.DeepCopy()
+				return []*apps.Deployment{dep1}, []*apps.ReplicaSet{rs1}
+			},
+			getNetwork: func() ([]*corev1.Service, []*netv1.Ingress) {
+				return []*corev1.Service{demoService.DeepCopy()}, []*netv1.Ingress{demoIngress.DeepCopy()}
+			},
+			getRollout: func() (*v1alpha1.Rollout, *v1alpha1.BatchRelease) {
+				obj := rolloutDemo.DeepCopy()
+				obj.Spec.AllowRunTime = &v1alpha1.AllowRunTime{
+					TimeRanges: []v1alpha1.TimeRange{
+						{
+							StartTime: "00:00:00",
+							EndTime:   "00:00:00",
+						},
+					},
+				}
+				obj.Status.CanaryStatus.ObservedWorkloadGeneration = 2
+				obj.Status.CanaryStatus.RolloutHash = "f55bvd874d5f2fzvw46bv966x4bwbdv4wx6bd9f7b46ww788954b8z8w29b7wxfd"
+				obj.Status.CanaryStatus.StableRevision = "pod-template-hash-v1"
+				obj.Status.CanaryStatus.CanaryRevision = "56855c89f9"
+				obj.Status.CanaryStatus.CurrentStepIndex = 1
+				obj.Status.CanaryStatus.CurrentStepState = v1alpha1.CanaryStepStateUpgrade
+				cond := util.GetRolloutCondition(obj.Status, v1alpha1.RolloutConditionProgressing)
+				cond.Reason = v1alpha1.ProgressingReasonInRolling
+				util.SetRolloutCondition(&obj.Status, *cond)
+				return obj, nil
+			},
+			expectStatus: func() *v1alpha1.RolloutStatus {
+				s := rolloutDemo.Status.DeepCopy()
+				s.CanaryStatus.ObservedWorkloadGeneration = 2
+				s.CanaryStatus.RolloutHash = "f55bvd874d5f2fzvw46bv966x4bwbdv4wx6bd9f7b46ww788954b8z8w29b7wxfd"
+				s.CanaryStatus.StableRevision = "pod-template-hash-v1"
+				s.CanaryStatus.CanaryRevision = "56855c89f9"
+				s.CanaryStatus.CurrentStepIndex = 1
+				s.CanaryStatus.CurrentStepState = v1alpha1.CanaryStepStateUpgrade
+				cond := util.GetRolloutCondition(*s, v1alpha1.RolloutConditionProgressing)
+				cond.Reason = v1alpha1.ProgressingReasonInRolling
+				util.SetRolloutCondition(s, *cond)
+				return s
+			},
+			expectBr: func() *v1alpha1.BatchRelease {
+				return nil
 			},
 		},
 		{
@@ -333,6 +382,9 @@ func checkBatchReleaseEqual(c client.WithWatch, t *testing.T, key client.ObjectK
 	obj := &v1alpha1.BatchRelease{}
 	err := c.Get(context.TODO(), key, obj)
 	if err != nil {
+		if errors.IsNotFound(err) && expect == nil {
+			return
+		}
 		t.Fatalf("get object failed: %s", err.Error())
 	}
 	if !reflect.DeepEqual(expect.Spec, obj.Spec) {

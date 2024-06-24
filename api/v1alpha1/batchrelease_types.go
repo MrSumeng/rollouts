@@ -44,6 +44,10 @@ type BatchReleaseSpec struct {
 	TargetRef ObjectRef `json:"targetReference"`
 	// ReleasePlan is the details on how to rollout the resources
 	ReleasePlan ReleasePlan `json:"releasePlan"`
+	// AllowRunTime is describes when the run policy runs.
+	// Allowed to run at any time by default.
+	//+optional
+	AllowRunTime *AllowRunTime `json:"allowRunTime,omitempty"`
 }
 
 // BatchReleaseList contains a list of BatchRelease

@@ -158,6 +158,18 @@ func (m *canaryReleaseManager) doCanaryUpgrade(c *util.RolloutContext) (bool, er
 	steps := len(c.Rollout.Spec.Strategy.Canary.Steps)
 	canaryStatus := c.NewStatus.CanaryStatus
 	cond := util.GetRolloutCondition(*c.NewStatus, v1alpha1.RolloutConditionProgressing)
+	expectedTime, ok := util.TimeInRange(time.Now(), c.Rollout.Spec.AllowRunTime)
+	if !ok {
+		timeZone := util.TimeZone(c.Rollout.Spec.AllowRunTime.TimeZone)
+		zoneTime := expectedTime.In(timeZone)
+		cond.Message = fmt.Sprintf("Rollout (%d/%d) will be start at time %s(%s), because now is not in time slices",
+			canaryStatus.CurrentStepIndex, steps,
+			expectedTime.Format(util.DateTimeLayout),
+			zoneTime.Format(util.DateTimeZoneLayout))
+		c.NewStatus.Message = cond.Message
+		c.RecheckTime = &expectedTime
+		return ok, nil
+	}
 	cond.Message = fmt.Sprintf("Rollout is in step(%d/%d), and upgrade workload to new version", canaryStatus.CurrentStepIndex, steps)
 	c.NewStatus.Message = cond.Message
 	// run batch release to upgrade the workloads
@@ -354,6 +366,7 @@ func createBatchRelease(rollout *v1alpha1.Rollout, rolloutID string, batch int32
 					Name:       rollout.Spec.ObjectRef.WorkloadRef.Name,
 				},
 			},
+			AllowRunTime: rollout.Spec.AllowRunTime,
 			ReleasePlan: v1alpha1.ReleasePlan{
 				Batches:          batches,
 				RolloutID:        rolloutID,
